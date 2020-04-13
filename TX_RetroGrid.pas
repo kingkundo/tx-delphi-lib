@@ -22,7 +22,6 @@ uses
 
 const
   clRandom = $030303;
-  TXMaxColumns = 50;
   TXDefaultColumnCount = 50;
   TXDefaultRowCount    = 30;
 
