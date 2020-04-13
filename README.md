@@ -5,5 +5,5 @@ A custom utilities and UI library built for the Delphi VCL. Feel free to use the
 Point your Delphi installation to look for source files at the folder that you clone this project into. Once successful you should be able to access units, classes, constants and functions as much as you need.
 
 # Containing...
-- TX_RetroGrid: The object used to render and control various grid based layouts, primarily aimed at recreating classic video games, along with designing new ones. It is used in the [Game of Life project](https://github.com/tomxxi/game-of-life-delphi)
+- TX_RetroGrid: The object used to render and control various grid based layouts, primarily aimed at recreating classic video games, along with designing new ones. It is used in the [Game of Life project](https://github.com/tomxxi/game-of-life-delphi).
 - More coming soon!
