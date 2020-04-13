@@ -22,27 +22,33 @@ uses
 
 const
   clRandom = $030303;
-  TXDefaultColumnCount = 30;
+  TXMaxColumns = 50;
+  TXDefaultColumnCount = 50;
   TXDefaultRowCount    = 30;
 
 type
-  TXGridConf = class
+  TXGridLayoutType = (gltSquare, gltStretch);
+
+  TXGridConfig = class
   private
     FColCount, FRowCount: integer;
     FBackColor, FDefaultActiveCellColor: TColor;
     FInfinite: boolean;
+    FLayoutType: TXGridLayoutType;
     FOnUpdate: TNotifyEvent;
     procedure SetColumnCount(ACol: integer);
     procedure SetRowCount(ARow: integer);
     procedure SetInfinite(AInfinite: boolean);
+    procedure SetLayoutType(AType: TXGridLayoutType);
     procedure SetBackColor(AColor: TColor);
     procedure SetDefaultActiveCellColor(AColor: TColor);
   public
-    constructor Create(ABackColor: TColor = clBlack; ADefCellColor: TColor = clRandom; AInfinite: boolean = True; AColCount: integer = TXDefaultColumnCount; ARowCount: integer = TXDefaultRowCount); virtual;
+    constructor Create(ALayoutType: TXGridLayoutType = gltSquare; ABackColor: TColor = clBlack; ADefCellColor: TColor = clRandom; AInfinite: boolean = True; AColCount: integer = TXDefaultColumnCount; ARowCount: integer = TXDefaultRowCount); virtual;
     property ColumnCount: integer read FColCount write SetColumnCount;
     property RowCount: integer read FRowCount write SetRowCount;
     property Infinite: boolean read FInfinite write SetInfinite;
     property BackColor: TColor read FBackColor write SetBackColor;
+    property LayoutType: TXGridLayoutType read FLayoutType write SetLayoutType;
     property DefaultActiveCellColor: TColor read FDefaultActiveCellColor write SetDefaultActiveCellColor;
     property OnConfigUpdate: TNotifyEvent write FOnUpdate;
   end;
@@ -66,9 +72,9 @@ type
 
   TXCellList = class(TObjectList)
   private
-    FGridConf: TXGridConf;
+    FGridConf: TXGridConfig;
   public
-    constructor Create(AOwnsObjects: boolean; AGridConf: TXGridConf); reintroduce;
+    constructor Create(AOwnsObjects: boolean; AGridConf: TXGridConfig); reintroduce;
     function GetCellAtPoint(APoint: TPoint): TXCell;
     function GetNeighboursForCellAtIndex(CellIndex: integer): TXCellList;
     function GetNeighboursForCell(SelectedCell: TXCell): TXCellList;
@@ -77,7 +83,7 @@ type
   TXRetroGrid = class(TCustomControl)
   private
     FForceRedraw: boolean;
-    FGridConf: TXGridConf;
+    FGridConf: TXGridConfig;
     FCells: TXCellList;
     FLastMousePos: TPoint;
     procedure InitialiseCells;
@@ -96,18 +102,19 @@ type
     function ImportState(NewState: string): boolean; virtual;
     function ExportState: string; virtual;
     property Cells: TXCellList read FCells write FCells;
-    property Config: TXGridConf read FGridConf;
+    property Config: TXGridConfig read FGridConf;
   end;
 
 implementation
 
 {-----------------------}
-{ TXGridConf            }
+{ TXGridConfig          }
 {-----------------------}
 
 {------------------------------------------------------------------------------}
-constructor TXGridConf.Create(ABackColor: TColor = clBlack; ADefCellColor: TColor = clRandom; AInfinite: boolean = True; AColCount: integer = TXDefaultColumnCount; ARowCount: integer = TXDefaultRowCount);
+constructor TXGridConfig.Create(ALayoutType: TXGridLayoutType = gltSquare; ABackColor: TColor = clBlack; ADefCellColor: TColor = clRandom; AInfinite: boolean = True; AColCount: integer = TXDefaultColumnCount; ARowCount: integer = TXDefaultRowCount);
 begin
+  FLayoutType := ALayoutType;
   FInfinite := AInfinite;
   FColCount := AColCount;
   FRowCount := ARowCount;
@@ -116,7 +123,7 @@ begin
 end;
 
 {------------------------------------------------------------------------------}
-procedure TXGridConf.SetColumnCount(ACol: integer);
+procedure TXGridConfig.SetColumnCount(ACol: integer);
 begin
   FColCount := ACol;
   if Assigned(FOnUpdate) then
@@ -124,14 +131,14 @@ begin
 end;
 
 {------------------------------------------------------------------------------}
-procedure TXGridConf.SetRowCount(ARow: integer);
+procedure TXGridConfig.SetRowCount(ARow: integer);
 begin
   FRowCount := ARow;
   if Assigned(FOnUpdate) then
     FOnUpdate(Self);
 end;
 {------------------------------------------------------------------------------}
-procedure TXGridConf.SetInfinite(AInfinite: boolean);
+procedure TXGridConfig.SetInfinite(AInfinite: boolean);
 begin
   FInfinite := AInfinite;
   if Assigned(FOnUpdate) then
@@ -139,7 +146,15 @@ begin
 end;
 
 {------------------------------------------------------------------------------}
-procedure TXGridConf.SetBackColor(AColor: TColor);
+procedure TXGridConfig.SetLayoutType(AType: TXGridLayoutType);
+begin
+  FLayoutType := AType;
+  if Assigned(FOnUpdate) then
+    FOnUpdate(Self);
+end;
+
+{------------------------------------------------------------------------------}
+procedure TXGridConfig.SetBackColor(AColor: TColor);
 begin
   FBackColor := AColor;
   if Assigned(FOnUpdate) then
@@ -147,7 +162,7 @@ begin
 end;
 
 {------------------------------------------------------------------------------}
-procedure TXGridConf.SetDefaultActiveCellColor(AColor: TColor);
+procedure TXGridConfig.SetDefaultActiveCellColor(AColor: TColor);
 begin
   FDefaultActiveCellColor := AColor;
   if Assigned(FOnUpdate) then
@@ -188,7 +203,7 @@ end;
 {-----------------------}
 
 {------------------------------------------------------------------------------}
-constructor TXCellList.Create(AOwnsObjects: Boolean; AGridConf: TXGridConf);
+constructor TXCellList.Create(AOwnsObjects: Boolean; AGridConf: TXGridConfig);
 begin
   inherited Create(AOwnsObjects);
   FGridConf := AGridConf;
@@ -312,7 +327,7 @@ begin
   FForceRedraw := True;
 
   FIsMouseDown             := False;
-  FGridConf                := TXGridConf.Create;
+  FGridConf                := TXGridConfig.Create;
   FGridConf.OnConfigUpdate := OnConfigUpdate;
   FCells                   := TXCellList.Create(True, FGridConf);
 end;
@@ -412,16 +427,30 @@ begin
   // TODO
   //GameState := gsStopped;
 
-  CellWidth  := floor(Width / FGridConf.RowCount);
-  CellHeight := floor(Height / FGridConf.ColumnCount);
+  CellWidth  := floor(Width / FGridConf.ColumnCount);
+  case Config.LayoutType of
+    gltSquare:  begin
+                  ColIndex := 0;
+                  CellHeight := 0;
+                  while CellHeight < (Height - CellWidth) do
+                  begin
+                    Inc(CellHeight, CellWidth);
+                    Inc(ColIndex);
+                  end;
+                  
+                  Config.RowCount := ColIndex;
+                  CellHeight := floor(Height / Config.RowCount);
+                end;
+    gltStretch: CellHeight := floor(Height / Config.ColumnCount);
+  end;
 
   FCells.Clear;
-  for ColIndex := 0 to pred(FGridConf.ColumnCount) do
+  for ColIndex := 0 to pred(Config.ColumnCount) do
   begin
-    for RowIndex := 0 to pred(FGridConf.RowCount) do
+    for RowIndex := 0 to pred(Config.RowCount) do
     begin
-      ALeft   := CellWidth * RowIndex;
-      ATop    := CellHeight * ColIndex;
+      ALeft   := CellWidth * ColIndex;
+      ATop    := CellHeight * RowIndex;
       ARight  := ALeft + CellWidth;
       ABottom := ATop + CellHeight;
       ACell   := TXCell.Create(ColIndex, RowIndex, Rect(ALeft, ATop, ARight, ABottom), Config.DefaultActiveCellColor);
@@ -456,11 +485,11 @@ begin
     if GridSettings.Count < 5 then
       Exit;
 
-    FGridConf.Infinite    := StrToIntDef(GridSettings[0], -1) = 1;
-    FGridConf.BackColor   := StrToIntDef(GridSettings[1], 0);
-    FGridConf.FDefaultActiveCellColor := StrToIntDef(GridSettings[2], 0);
-    FGridConf.ColumnCount := StrToIntDef(GridSettings[3], TXDefaultColumnCount);
-    FGridConf.RowCount    := StrToIntDef(GridSettings[4], TXDefaultRowCount);
+    FGridConf.ColumnCount := StrToIntDef(GridSettings[0], TXDefaultColumnCount);
+    FGridConf.RowCount    := StrToIntDef(GridSettings[1], TXDefaultRowCount);
+    FGridConf.Infinite    := StrToIntDef(GridSettings[2], -1) = 1;
+    FGridConf.BackColor   := StrToIntDef(GridSettings[3], 0);
+    FGridConf.FDefaultActiveCellColor := StrToIntDef(GridSettings[4], 0);
     Reset;
 
     for Index := 5 to pred(GridSettings.Count) do
@@ -513,7 +542,7 @@ begin
   else
     Infinite := 0;
 
-  Result := format('%d:%d:%d:%d:%d', [Infinite, FGridConf.FBackColor, FGridConf.FDefaultActiveCellColor, FGridConf.ColumnCount, FGridConf.RowCount]);
+  Result := format('%d:%d:%d:%d:%d', [FGridConf.ColumnCount, FGridConf.RowCount, Infinite, FGridConf.FBackColor, FGridConf.FDefaultActiveCellColor]);
   for Index := 0 to pred(FCells.Count) do
   begin
     Cell := TXCell(FCells[Index]);
