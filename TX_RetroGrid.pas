@@ -76,8 +76,8 @@ type
   public
     constructor Create(AOwnsObjects: boolean; AGridConf: TXGridConfig); reintroduce;
     function GetCellAtPoint(APoint: TPoint): TXCell;
-    function GetNeighboursForCellAtIndex(CellIndex: integer): TXCellList;
-    function GetNeighboursForCell(SelectedCell: TXCell): TXCellList;
+    function GetNeighboursForCellAtIndex(CellIndex: integer; ActiveOnly: boolean = False): TXCellList;
+    function GetNeighboursForCell(SelectedCell: TXCell; ActiveOnly: boolean = False): TXCellList;
   end;
 
   TXRetroGrid = class(TCustomControl)
@@ -228,7 +228,7 @@ begin
 end;
 
 {------------------------------------------------------------------------------}
-function TXCellList.GetNeighboursForCellAtIndex(CellIndex: integer): TXCellList;
+function TXCellList.GetNeighboursForCellAtIndex(CellIndex: integer; ActiveOnly: boolean = False): TXCellList;
 var
   SelectedCell: TXCell;
 begin
@@ -236,11 +236,11 @@ begin
     SelectedCell := nil
   else
     SelectedCell := TXCell(Items[CellIndex]);
-  Result := GetNeighboursForCell(SelectedCell);
+  Result := GetNeighboursForCell(SelectedCell, ActiveOnly);
 end;
 
 {------------------------------------------------------------------------------}
-function TXCellList.GetNeighboursForCell(SelectedCell: TXCell): TXCellList;
+function TXCellList.GetNeighboursForCell(SelectedCell: TXCell; ActiveOnly: boolean = False): TXCellList;
 var
   LoopIndex, TopRow, BottomRow, LeftColumn, RightColumn: integer;
   ACell: TXCell;
@@ -286,8 +286,8 @@ begin
   for LoopIndex := 0 to pred(Count) do
   begin
     ACell := TXCell(Items[LoopIndex]);
-    //if (LiveOnly) and (not ACell.Alive) then
-    //  continue;
+    if (ActiveOnly) and (not ACell.Active) then
+      continue;
 
     // If on the row above...
     if (ACell.Row = TopRow) then
@@ -521,10 +521,6 @@ begin
     FForceRedraw := True;
     Invalidate;
   end;
-
-  // TODO
-  //if Result and PlayImmediately then
-  //  GameState := gsStarted;
 end;
 
 {------------------------------------------------------------------------------}
