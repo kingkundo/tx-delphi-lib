@@ -26,7 +26,8 @@ const
   TXDefaultRowCount    = 30;
 
 type
-  TXGridLayoutType = (gltSquare, gltStretch);
+  TXGridLayoutType         = (gltSquare, gltStretch);
+  TXCellNeighbourDirection = (cndNone, cndTopLeft, cndTop, cndTopRight, cndLeft, cndRight, cndBottomLeft, cndBottom, cndBottomRight);
 
   TXGridConfig = class
   private
@@ -58,6 +59,7 @@ type
     FRect: TRect;
     FActive: boolean;
     FColor, FRColor: TColor;
+    FDirection: TXCellNeighbourDirection;
   public
     constructor Create(ACol: integer; ARow: integer; ARect: TRect; AStandardColor: TColor = clRandom; ARandomColor: TColor = clRandom; AActive: boolean = False); virtual;
     function Clone: TXCell; virtual;
@@ -67,6 +69,7 @@ type
     property Active: boolean read FActive write FActive;
     property StandardColor: TColor read FColor write FColor;
     property RandomColor: TColor read FRColor write FRColor;
+    property Direction: TXCellNeighbourDirection read FDirection write FDirection;
   end;
 
   TXCellList = class(TObjectList)
@@ -175,10 +178,11 @@ end;
 {------------------------------------------------------------------------------}
 constructor TXCell.Create(ACol: integer; ARow: integer; ARect: TRect; AStandardColor: TColor = clRandom; ARandomColor: TColor = clRandom; AActive: boolean = False);
 begin
-  FCol  := ACol;
-  FRow  := ARow;
-  FRect := ARect;
-  FActive := AActive;
+  FDirection := cndNone;
+  FCol       := ACol;
+  FRow       := ARow;
+  FRect      := ARect;
+  FActive    := AActive;
 
   if ARandomColor = clRandom then
     FRColor := RGB(Random(255), Random(255), Random(255))
@@ -285,27 +289,61 @@ begin
   for LoopIndex := 0 to pred(Count) do
   begin
     ACell := TXCell(Items[LoopIndex]);
+
+    if ACell.Direction <> cndNone then
+      ACell.Direction := cndNone;
+
     if (ActiveOnly) and (not ACell.Active) then
       continue;
 
-    // If on the row above...
     if (ACell.Row = TopRow) then
     begin
-      // If on a neighbouring column
-      if (ACell.Column = LeftColumn) or (ACell.Column = SelectedCell.Column) or (ACell.Column = RightColumn) then
+      if (ACell.Column = LeftColumn) then
+      begin
+        ACell.Direction := cndTopLeft;
         Result.Add(ACell);
+      end
+      else if (ACell.Column = SelectedCell.Column) then
+      begin
+        ACell.Direction := cndTop;
+        Result.Add(ACell);
+      end
+      else if (ACell.Column = RightColumn) then
+      begin
+        ACell.Direction := cndTopRight;
+        Result.Add(ACell);
+      end;
     end
-    // If on the current row...
     else if (ACell.Row = SelectedCell.Row) then
     begin
-      if (ACell.Column = LeftColumn) or (ACell.Column = RightColumn) then
+      if (ACell.Column = LeftColumn) then
+      begin
+        ACell.Direction := cndLeft;
         Result.Add(ACell);
+      end
+      else if (ACell.Column = RightColumn) then
+      begin
+        ACell.Direction := cndRight;
+        Result.Add(ACell);
+      end;
     end
-    // If on the row below...
     else if (ACell.Row = BottomRow) then
     begin
-      if (ACell.Column = LeftColumn) or (ACell.Column = SelectedCell.Column) or (ACell.Column = RightColumn) then
+      if (ACell.Column = LeftColumn) then
+      begin
+        ACell.Direction := cndBottomLeft;
         Result.Add(ACell);
+      end
+      else if (ACell.Column = SelectedCell.Column) then
+      begin
+        ACell.Direction := cndBottom;
+        Result.Add(ACell);
+      end
+      else if (ACell.Column = RightColumn) then
+      begin
+        ACell.Direction := cndBottomRight;
+        Result.Add(ACell);
+      end;
     end;
 
     if (Result.Count = 8) then
@@ -441,6 +479,8 @@ begin
                   CellHeight := floor(Height / Config.RowCount);
                 end;
     gltStretch: CellHeight := floor(Height / Config.ColumnCount);
+    else
+      CellHeight := 0;
   end;
 
   FCells.Clear;
