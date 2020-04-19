@@ -54,6 +54,8 @@ type
   end;
 
   TXCell = class
+  private
+    function GetID: string;
   protected
     FRow, FCol: integer;
     FRect: TRect;
@@ -70,6 +72,7 @@ type
     property StandardColor: TColor read FColor write FColor;
     property RandomColor: TColor read FRColor write FRColor;
     property Direction: TXCellNeighbourDirection read FDirection write FDirection;
+    property ID: string read GetID;
   end;
 
   TXCellList = class(TObjectList)
@@ -78,19 +81,19 @@ type
   public
     constructor Create(AOwnsObjects: boolean; AGridConf: TXGridConfig); reintroduce;
     function GetCellAtPoint(APoint: TPoint): TXCell;
-    function GetNeighboursForCellAtIndex(CellIndex: integer; ActiveOnly: boolean = False): TXCellList;
-    function GetNeighboursForCell(SelectedCell: TXCell; ActiveOnly: boolean = False): TXCellList;
+    function GetNeighboursForCellAtIndex(CellIndex: integer; IncludeDiagonals: boolean; ActiveOnly: boolean): TXCellList;
+    function GetNeighboursForCell(SelectedCell: TXCell; IncludeDiagonals: boolean; ActiveOnly: boolean): TXCellList;
   end;
 
   TXRetroGrid = class(TCustomControl)
   private
-    FForceRedraw: boolean;
-    FGridConf: TXGridConfig;
     FCells: TXCellList;
+    FGridConf: TXGridConfig;
     FLastMousePos: TPoint;
     procedure InitialiseCells;
     procedure OnConfigUpdate(Sender: TObject);
   protected
+    FForceRedraw: boolean;
     FIsMouseDown: boolean;
     procedure Paint; override;
     procedure Resize; override;
@@ -201,6 +204,12 @@ begin
   Result := TXCell.Create(FCol, FRow, FRect, FColor, FRColor, FActive);
 end;
 
+{------------------------------------------------------------------------------}
+function TXCell.GetID: string;
+begin
+  Result := format('%d:%d', [FCol, FRow]);
+end;
+
 {-----------------------}
 { TXCellList            }
 {-----------------------}
@@ -231,7 +240,7 @@ begin
 end;
 
 {------------------------------------------------------------------------------}
-function TXCellList.GetNeighboursForCellAtIndex(CellIndex: integer; ActiveOnly: boolean = False): TXCellList;
+function TXCellList.GetNeighboursForCellAtIndex(CellIndex: integer; IncludeDiagonals: boolean; ActiveOnly: boolean): TXCellList;
 var
   SelectedCell: TXCell;
 begin
@@ -239,19 +248,25 @@ begin
     SelectedCell := nil
   else
     SelectedCell := TXCell(Items[CellIndex]);
-  Result := GetNeighboursForCell(SelectedCell, ActiveOnly);
+  Result := GetNeighboursForCell(SelectedCell, IncludeDiagonals, ActiveOnly);
 end;
 
 {------------------------------------------------------------------------------}
-function TXCellList.GetNeighboursForCell(SelectedCell: TXCell; ActiveOnly: boolean = False): TXCellList;
+function TXCellList.GetNeighboursForCell(SelectedCell: TXCell; IncludeDiagonals: boolean; ActiveOnly: boolean): TXCellList;
 var
   LoopIndex, TopRow, BottomRow, LeftColumn, RightColumn: integer;
+  ExitNumber: integer;
   ACell: TXCell;
 begin
   Result := TXCellList.Create(False, FGridConf);
 
   if SelectedCell = nil then
     Exit;
+
+  if IncludeDiagonals then
+    ExitNumber := 8
+  else
+    ExitNumber := 4;
 
   if not FGridConf.Infinite then
   begin
@@ -298,7 +313,7 @@ begin
 
     if (ACell.Row = TopRow) then
     begin
-      if (ACell.Column = LeftColumn) then
+      if (IncludeDiagonals) and (ACell.Column = LeftColumn) then
       begin
         ACell.Direction := cndTopLeft;
         Result.Add(ACell);
@@ -308,7 +323,7 @@ begin
         ACell.Direction := cndTop;
         Result.Add(ACell);
       end
-      else if (ACell.Column = RightColumn) then
+      else if (IncludeDiagonals) and (ACell.Column = RightColumn) then
       begin
         ACell.Direction := cndTopRight;
         Result.Add(ACell);
@@ -329,7 +344,7 @@ begin
     end
     else if (ACell.Row = BottomRow) then
     begin
-      if (ACell.Column = LeftColumn) then
+      if (IncludeDiagonals) and (ACell.Column = LeftColumn) then
       begin
         ACell.Direction := cndBottomLeft;
         Result.Add(ACell);
@@ -339,14 +354,14 @@ begin
         ACell.Direction := cndBottom;
         Result.Add(ACell);
       end
-      else if (ACell.Column = RightColumn) then
+      else if (IncludeDiagonals) and (ACell.Column = RightColumn) then
       begin
         ACell.Direction := cndBottomRight;
         Result.Add(ACell);
       end;
     end;
 
-    if (Result.Count = 8) then
+    if (Result.Count = ExitNumber) then
       break;
   end;
 end;
@@ -425,7 +440,6 @@ end;
 procedure TXRetroGrid.Resize;
 begin
   inherited;
-  Reset;
 end;
 
 {------------------------------------------------------------------------------}
